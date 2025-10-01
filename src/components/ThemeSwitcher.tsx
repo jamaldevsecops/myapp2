@@ -7,19 +7,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DEFAULT_THEME, THEME_OPTIONS } from "../../config/theme.config";
 
-const themes = [
-  { name: "Ocean Blue", value: "blue", class: "bg-theme-blue" },
-  { name: "Royal Purple", value: "purple", class: "bg-theme-purple" },
-  { name: "Forest Green", value: "green", class: "bg-theme-green" },
-  { name: "Sunset Orange", value: "orange", class: "bg-theme-orange" },
-  { name: "Cherry Pink", value: "pink", class: "bg-theme-pink" },
-  { name: "Arctic Cyan", value: "cyan", class: "bg-theme-cyan" },
-  { name: "Midnight Dark", value: "dark", class: "bg-theme-dark" },
-];
+const themes = Object.entries(THEME_OPTIONS).map(([value, config]) => ({
+  name: config.name,
+  value,
+  class: config.class,
+}));
 
 export function ThemeSwitcher() {
-  const [currentTheme, setCurrentTheme] = useState("blue");
+  const [currentTheme, setCurrentTheme] = useState(DEFAULT_THEME);
 
   useEffect(() => {
     const root = document.documentElement;

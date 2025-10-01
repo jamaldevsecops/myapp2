@@ -1,5 +1,6 @@
 import { DevOpsCard } from "@/components/DevOpsCard";
 import { DevOpsPipeline } from "@/components/DevOpsPipeline";
+import { DevSecOpsPipeline } from "@/components/DevSecOpsPipeline";
 import { ToolsGrid } from "@/components/ToolsGrid";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Separator } from "@/components/ui/separator";
@@ -64,9 +65,9 @@ const Index = () => {
           <div className="container mx-auto flex items-center justify-between px-4 py-4">
             <div>
               <h1 className="text-2xl font-bold bg-gradient-accent bg-clip-text text-transparent">
-                DevOps Hub
+                DevOps & DevSecOps Excellence Platform
               </h1>
-              <p className="text-sm text-muted-foreground">Modern DevOps & DevSecOps Platform</p>
+              <p className="text-sm text-muted-foreground">Unified CI/CD & Security Automation Hub</p>
             </div>
             <ThemeSwitcher />
           </div>
@@ -90,6 +91,16 @@ const Index = () => {
               DevOps Pipeline Flow
             </h3>
             <DevOpsPipeline />
+          </section>
+
+          <Separator className="bg-glass-border" />
+
+          {/* DevSecOps Pipeline */}
+          <section className="rounded-2xl border border-glass-border/50 bg-gradient-glass backdrop-blur-xl p-8 animate-fade-in" style={{ animationDelay: '500ms' }}>
+            <h3 className="mb-6 text-2xl font-semibold text-center text-foreground">
+              DevSecOps Security Pipeline
+            </h3>
+            <DevSecOpsPipeline />
           </section>
 
           <Separator className="bg-glass-border" />
@@ -119,44 +130,12 @@ const Index = () => {
             </h3>
             <ToolsGrid />
           </section>
-
-          {/* Additional Concepts */}
-          <section className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-xl border border-glass-border/50 bg-gradient-glass backdrop-blur-xl p-6 animate-fade-in">
-              <h4 className="mb-3 text-xl font-semibold text-primary">GitOps</h4>
-              <p className="text-muted-foreground">
-                Implement Git as the single source of truth for declarative infrastructure and applications, 
-                enabling automated deployment and management through pull requests.
-              </p>
-            </div>
-            <div className="rounded-xl border border-glass-border/50 bg-gradient-glass backdrop-blur-xl p-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
-              <h4 className="mb-3 text-xl font-semibold text-primary">SRE Practices</h4>
-              <p className="text-muted-foreground">
-                Apply software engineering principles to infrastructure and operations problems, 
-                focusing on reliability, scalability, and efficiency through automation.
-              </p>
-            </div>
-            <div className="rounded-xl border border-glass-border/50 bg-gradient-glass backdrop-blur-xl p-6 animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <h4 className="mb-3 text-xl font-semibold text-primary">Platform Engineering</h4>
-              <p className="text-muted-foreground">
-                Build and maintain internal developer platforms that provide self-service capabilities, 
-                standardized workflows, and automated infrastructure provisioning.
-              </p>
-            </div>
-            <div className="rounded-xl border border-glass-border/50 bg-gradient-glass backdrop-blur-xl p-6 animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <h4 className="mb-3 text-xl font-semibold text-primary">Chaos Engineering</h4>
-              <p className="text-muted-foreground">
-                Proactively discover system weaknesses by introducing controlled failures and 
-                observing system behavior to build more resilient applications.
-              </p>
-            </div>
-          </section>
         </main>
 
         {/* Footer */}
         <footer className="mt-16 border-t border-glass-border/50 bg-background/80 backdrop-blur-xl">
           <div className="container mx-auto px-4 py-6 text-center text-muted-foreground">
-            <p>© 2024 DevOps Hub - Empowering Modern Software Delivery</p>
+            <p>© 2024 DevOps & DevSecOps Excellence Platform. All rights reserved.</p>
           </div>
         </footer>
       </div>
