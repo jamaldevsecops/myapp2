@@ -1,75 +1,110 @@
+import { useEffect, useState } from "react";
 import { Shield, Code, Lock, Scan, AlertTriangle, CheckCircle } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 const securityStages = [
   { 
+    id: 1,
     icon: Code, 
+    emoji: "🔒",
     name: "Secure Code", 
     description: "SAST & Code Review",
-    color: "primary"
   },
   { 
+    id: 2,
     icon: Shield, 
+    emoji: "🛡️",
     name: "Dependency Scan", 
     description: "SCA & License Check",
-    color: "accent"
   },
   { 
+    id: 3,
     icon: Scan, 
+    emoji: "📦",
     name: "Container Security", 
     description: "Image Scanning",
-    color: "primary"
   },
   { 
+    id: 4,
     icon: Lock, 
+    emoji: "🔍",
     name: "DAST", 
     description: "Dynamic Testing",
-    color: "accent"
   },
   { 
+    id: 5,
     icon: AlertTriangle, 
+    emoji: "⚠️",
     name: "Compliance", 
     description: "Policy Validation",
-    color: "primary"
   },
   { 
+    id: 6,
     icon: CheckCircle, 
+    emoji: "✅",
     name: "Deploy Secure", 
     description: "Secured Release",
-    color: "accent"
   },
 ];
 
 export function DevSecOpsPipeline() {
+  const [activeStage, setActiveStage] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveStage((prev) => (prev + 1) % securityStages.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="relative">
-      {/* Connection line */}
-      <div className="absolute top-1/2 left-8 right-8 h-0.5 bg-gradient-accent -translate-y-1/2 hidden md:block" />
-      
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {securityStages.map((stage, index) => {
-          const Icon = stage.icon;
-          return (
-            <Card
-              key={stage.name}
-              className="relative bg-glass/50 border-glass-border hover:bg-glass hover:border-primary/50 backdrop-blur-xl p-4 text-center group transition-all duration-300 hover:scale-105 animate-fade-in"
-              style={{ animationDelay: `${index * 100}ms` }}
+      <div className="flex items-center justify-between overflow-x-auto">
+        {securityStages.map((stage, index) => (
+          <div key={stage.id} className="flex items-center">
+            <div
+              className={cn(
+                "relative flex h-16 w-16 items-center justify-center rounded-full",
+                "border-2 transition-all duration-500 min-w-[4rem]",
+                activeStage === index
+                  ? "border-accent bg-accent/20 shadow-glow scale-110"
+                  : "border-glass-border bg-glass/30"
+              )}
             >
-              {/* Pulse effect on hover */}
-              <div className="absolute inset-0 rounded-lg bg-gradient-primary opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
-              
-              <div className="relative z-10 flex flex-col items-center gap-2">
-                <div className={`rounded-full p-3 bg-${stage.color}/10 border border-${stage.color}/20 group-hover:border-${stage.color}/50 transition-all duration-300`}>
-                  <Icon className={`h-6 w-6 text-${stage.color} group-hover:text-${stage.color}-glow transition-colors`} />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-foreground">{stage.name}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">{stage.description}</p>
-                </div>
+              <span className="text-2xl">{stage.emoji}</span>
+              {activeStage === index && (
+                <div className="absolute inset-0 rounded-full bg-accent/20 animate-ping" />
+              )}
+            </div>
+            {index < securityStages.length - 1 && (
+              <div className="relative w-full lg:w-20 xl:w-28 h-0.5 mx-2">
+                <div className="absolute inset-0 bg-glass-border" />
+                <div
+                  className={cn(
+                    "absolute inset-0 bg-gradient-accent transition-all duration-1000",
+                    activeStage > index ? "w-full" : "w-0"
+                  )}
+                />
               </div>
-            </Card>
-          );
-        })}
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex justify-between">
+        {securityStages.map((stage, index) => (
+          <div
+            key={stage.id}
+            className={cn(
+              "text-center transition-all duration-500 min-w-[4rem]",
+              activeStage === index
+                ? "text-accent font-semibold"
+                : "text-muted-foreground"
+            )}
+          >
+            <p className="text-sm font-medium">{stage.name}</p>
+            <p className="text-xs mt-1">{stage.description}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -65,7 +65,7 @@ const Index = () => {
           <div className="container mx-auto flex items-center justify-between px-4 py-4">
             <div>
               <h1 className="text-2xl font-bold bg-gradient-accent bg-clip-text text-transparent">
-                DevOps & DevSecOps Excellence Platform
+                DevOps & DevSecOps Platform
               </h1>
               <p className="text-sm text-muted-foreground">Unified CI/CD & Security Automation Hub</p>
             </div>
@@ -135,7 +135,7 @@ const Index = () => {
         {/* Footer */}
         <footer className="mt-16 border-t border-glass-border/50 bg-background/80 backdrop-blur-xl">
           <div className="container mx-auto px-4 py-6 text-center text-muted-foreground">
-            <p>© 2024 DevOps & DevSecOps Excellence Platform. All rights reserved.</p>
+            <p>© 2025 <a href="https://www.linkedin.com/in/jh1337cse/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-glow transition-colors underline">https://www.linkedin.com/in/jh1337cse/</a>. All rights reserved.</p>
           </div>
         </footer>
       </div>
