@@ -2,7 +2,7 @@
 // Change the value of DEFAULT_THEME to switch default colors
 // Options: 'blue' | 'purple' | 'green' | 'orange' | 'pink' | 'cyan' | 'dark'
 
-export const DEFAULT_THEME = 'purple'; // Change this value to set default theme
+export const DEFAULT_THEME = 'green'; // Change this value to set default theme
 
 export const THEME_OPTIONS = {
   blue: {
