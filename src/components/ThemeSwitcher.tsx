@@ -26,6 +26,13 @@ export function ThemeSwitcher() {
       themes.forEach(t => root.classList.remove(t.class));
       // Add current theme class
       root.classList.add(theme.class);
+
+      // Update design tokens based on selected theme
+      const config: any = (THEME_OPTIONS as any)[currentTheme as keyof typeof THEME_OPTIONS];
+      if (config?.primary) root.style.setProperty('--primary', config.primary);
+      if (config?.accent) root.style.setProperty('--accent', config.accent);
+      // Keep ring in sync with primary for focus styles
+      if (config?.primary) root.style.setProperty('--ring', config.primary);
     }
   }, [currentTheme]);
 
@@ -36,6 +43,12 @@ export function ThemeSwitcher() {
     if (theme) {
       themes.forEach(t => root.classList.remove(t.class));
       root.classList.add(theme.class);
+
+      // Initialize design tokens from DEFAULT_THEME
+      const config: any = (THEME_OPTIONS as any)[DEFAULT_THEME as keyof typeof THEME_OPTIONS];
+      if (config?.primary) root.style.setProperty('--primary', config.primary);
+      if (config?.accent) root.style.setProperty('--accent', config.accent);
+      if (config?.primary) root.style.setProperty('--ring', config.primary);
     }
   }, []);
 
