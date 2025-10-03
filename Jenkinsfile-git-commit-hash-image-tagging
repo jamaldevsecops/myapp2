@@ -9,7 +9,7 @@ pipeline {
     }
 
     environment {
-        CONTAINER_NAME        = "myapp"
+        CONTAINER_NAME        = "myapp2"
         DOCKER_FILENAME       = "Dockerfile"
         DOCKER_HUB_USERNAME   = "jamaldevsecops"
         DOCKER_CREDENTIALS_ID = "PersonalDockerHubAccessToken"
