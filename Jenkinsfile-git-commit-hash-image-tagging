@@ -1,0 +1,121 @@
+// Jenkinsfile: Build Docker Image with Automatic Tagging using Git Commit Hash
+pipeline {
+    agent {
+        label 'BUILD-SERVER'
+    }
+
+    parameters {
+        string(name: 'OVERRIDE_TAG', defaultValue: '', description: 'Optional: override auto-generated image tag')
+    }
+
+    environment {
+        CONTAINER_NAME        = "myapp"
+        DOCKER_FILENAME       = "Dockerfile"
+        DOCKER_HUB_USERNAME   = "jamaldevsecops"
+        DOCKER_CREDENTIALS_ID = "PersonalDockerHubAccessToken"
+        RECIPIENT_EMAILS      = "jamal.devsecops@gmail.com"
+    }
+
+    stages {
+        stage('📥 Checkout') {
+            steps {
+                echo "📥 Checking out source code..."
+                checkout scm
+                script {
+                    sh 'git fetch --tags'
+
+                    // Try to get the latest Git tag
+                    def gitTag = sh(returnStdout: true, script: "git describe --tags --abbrev=0 || echo ''").trim()
+                    def commitHash = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+
+                    // Determine image tag
+                    if (params.OVERRIDE_TAG?.trim()) {
+                        env.IMAGE_TAG = params.OVERRIDE_TAG
+                        echo "🔖 Using override tag: ${env.IMAGE_TAG}"
+                    } else if (gitTag) {
+                        env.IMAGE_TAG = gitTag.startsWith('v') ? gitTag.substring(1) : gitTag
+                        echo "🔖 Using Git tag as image tag: ${env.IMAGE_TAG}"
+                    } else {
+                        env.IMAGE_TAG = commitHash
+                        echo "🔖 No Git tag found. Using commit hash as image tag: ${env.IMAGE_TAG}"
+                    }
+
+                    env.GIT_COMMIT_HASH = commitHash
+                    env.GIT_BRANCH = sh(returnStdout: true, script: "git rev-parse --abbrev-ref HEAD").trim()
+                }
+            }
+        }
+
+        stage('🔧 Build & Push Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry("https://index.docker.io/v1/", env.DOCKER_CREDENTIALS_ID) {
+                        def imageName = "${env.DOCKER_HUB_USERNAME}/${env.CONTAINER_NAME}:${env.IMAGE_TAG}"
+                        echo "🔧 Building Docker image: ${imageName}"
+                        def app = docker.build(imageName, "-f ${env.DOCKER_FILENAME} .")
+
+                        echo "📤 Pushing Docker image..."
+                        app.push()
+                        app.push("latest") // Optional: also push 'latest'
+                        env.DOCKER_IMAGE = imageName
+
+                        // Capture digest for email/report
+                        env.DOCKER_DIGEST = sh(returnStdout: true, script: "docker inspect --format='{{index .RepoDigests 0}}' ${imageName}").trim()
+                        echo "✅ Docker image pushed: ${env.DOCKER_IMAGE} (${env.DOCKER_DIGEST})"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                emailext(
+                    subject: "✅ [SUCCESS] Build Report: ${env.CONTAINER_NAME} 🚀",
+                    body: """
+                        <html>
+                        <body style="font-family: Arial, sans-serif; color: #333;">
+                            <h2 style="color: green;">✅ Build Succeeded</h2>
+                            <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
+                                <tr><td><strong>Docker Image</strong></td><td>${env.DOCKER_IMAGE}</td></tr>
+                                <tr><td><strong>Digest</strong></td><td>${env.DOCKER_DIGEST}</td></tr>
+                                <tr><td><strong>Git Branch</strong></td><td>${env.GIT_BRANCH}</td></tr>
+                                <tr><td><strong>Git Commit</strong></td><td>${env.GIT_COMMIT_HASH}</td></tr>
+                            </table>
+                            <p style="margin-top: 15px;">The Docker image has been successfully built and pushed to DockerHub.</p>
+                        </body>
+                        </html>
+                    """,
+                    mimeType: 'text/html',
+                    to: "${env.RECIPIENT_EMAILS}",
+                    attachLog: true
+                )
+            }
+        }
+
+        failure {
+            script {
+                emailext(
+                    subject: "❌ [FAILURE] Build Report: ${env.CONTAINER_NAME} 💥",
+                    body: """
+                        <html>
+                        <body style="font-family: Arial, sans-serif; color: #333;">
+                            <h2 style="color: red;">❌ Build Failed</h2>
+                            <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
+                                <tr><td><strong>Image Attempted</strong></td><td>${env.CONTAINER_NAME}:${env.IMAGE_TAG}</td></tr>
+                                <tr><td><strong>Git Branch</strong></td><td>${env.GIT_BRANCH ?: 'N/A'}</td></tr>
+                                <tr><td><strong>Git Commit</strong></td><td>${env.GIT_COMMIT_HASH ?: 'N/A'}</td></tr>
+                            </table>
+                            <p style="margin-top: 15px;">Please review the Jenkins logs for details.</p>
+                        </body>
+                        </html>
+                    """,
+                    mimeType: 'text/html',
+                    to: "${env.RECIPIENT_EMAILS}",
+                    attachLog: true
+                )
+            }
+        }
+    }
+}
