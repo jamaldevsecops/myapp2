@@ -52,7 +52,7 @@ const devOpsTopics = [
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-theme-blue">
+    <div className="min-h-screen">
       {/* Animated background particles */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/10 blur-3xl animate-float" />

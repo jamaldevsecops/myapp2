@@ -29,6 +29,16 @@ export function ThemeSwitcher() {
     }
   }, [currentTheme]);
 
+  // Apply default theme on mount
+  useEffect(() => {
+    const root = document.documentElement;
+    const theme = themes.find(t => t.value === DEFAULT_THEME);
+    if (theme) {
+      themes.forEach(t => root.classList.remove(t.class));
+      root.classList.add(theme.class);
+    }
+  }, []);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
