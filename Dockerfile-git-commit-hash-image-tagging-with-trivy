@@ -10,7 +10,7 @@ pipeline {
         DOCKER_FILENAME       = "Dockerfile"
         DOCKER_HUB_USERNAME   = "jamaldevsecops"
         DOCKER_CREDENTIALS_ID = "PersonalDockerHubAccessToken"
-        RECIPIENT_EMAILS      = "jamaldevsecops.devsecops@gmail.com"
+        RECIPIENT_EMAILS      = "jamalhossain.devsecops@gmail.com"
     }
 
     stages {
