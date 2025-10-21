@@ -6,11 +6,11 @@ pipeline {
     }
 
     environment {
-        CONTAINER_NAME        = "myapp2"
+        CONTAINER_NAME        = "myapp"
         DOCKER_FILENAME       = "Dockerfile"
         DOCKER_HUB_USERNAME   = "jamaldevsecops"
         DOCKER_CREDENTIALS_ID = "PersonalDockerHubAccessToken"
-        RECIPIENT_EMAILS      = "jamalhossain.devsecops@gmail.com"
+        RECIPIENT_EMAILS      = "jamaldevsecops.devsecops@gmail.com"
     }
 
     stages {
@@ -51,7 +51,7 @@ pipeline {
 
                         echo "📤 Pushing Docker image..."
                         app.push()
-                        app.push("latest") 
+                        app.push("latest")
                         env.DOCKER_IMAGE = imageName
 
                         env.DOCKER_DIGEST = sh(returnStdout: true, script: "docker inspect --format='{{index .RepoDigests 0}}' ${imageName}").trim()
@@ -64,26 +64,12 @@ pipeline {
         stage('🛡️ Trivy Image Scan') {
             steps {
                 script {
-                    // Create a simple template for Trivy summary
-                    writeFile file: 'trivy-summary.tpl', text: '''
-{{ range .Results }}
-{{ .Target }}:
-  {{ if .Vulnerabilities }}
-  {{ range .Vulnerabilities }}- {{ .Severity }}: {{ .PkgName }} {{ .InstalledVersion }} -> {{ .FixedVersion }}
-  {{ end }}
-  {{ else }}No vulnerabilities found.
-  {{ end }}
-{{ end }}
-'''
-
-                    // Run Trivy scans
+                    echo "🔍 Running Trivy scan..."
                     sh """
-                        trivy image --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format table -o trivy-report.txt ${env.DOCKER_IMAGE}
-                        trivy image --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template ./trivy-summary.tpl -o trivy-summary.txt ${env.DOCKER_IMAGE}
+                        trivy image --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL -f table -o ${WORKSPACE}/trivy-report.txt ${env.DOCKER_IMAGE}
+                        ls -l ${WORKSPACE}/trivy-report.txt
                     """
-
-                    env.TRIVY_SUMMARY = readFile('trivy-summary.txt').trim()
-                    echo "✅ Trivy scan completed. Summary:\\n${env.TRIVY_SUMMARY}"
+                    echo "✅ Trivy scan completed. Report saved as trivy-report.txt"
                 }
             }
         }
@@ -93,27 +79,25 @@ pipeline {
         always {
             script {
                 emailext(
-                    subject: "🛡️ [SECURITY SCAN] Docker Image Build Report: ${env.CONTAINER_NAME}:${env.IMAGE_TAG}",
+                    subject: "🛡️ Docker Image Build & Security Report: ${env.CONTAINER_NAME}:${env.IMAGE_TAG}",
                     body: """
                         <html>
                         <body style="font-family: Arial, sans-serif; color: #333;">
-                            <h2 style="color: #2E86C1;">🛡️ Docker Image Build & Security Scan Report</h2>
+                            <h2 style="color: #2E86C1;">🛡️ Docker Image Build & Security Report</h2>
                             <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
                                 <tr><td><strong>Docker Image</strong></td><td>${env.DOCKER_IMAGE}</td></tr>
                                 <tr><td><strong>Digest</strong></td><td>${env.DOCKER_DIGEST}</td></tr>
                                 <tr><td><strong>Git Branch</strong></td><td>${env.GIT_BRANCH}</td></tr>
                                 <tr><td><strong>Git Commit</strong></td><td>${env.GIT_COMMIT_HASH}</td></tr>
                             </table>
-                            <h3 style="color: #C0392B; margin-top: 15px;">Trivy Vulnerability Summary</h3>
-                            <pre style="background-color: #F4F6F7; padding: 10px; border-radius: 5px;">${env.TRIVY_SUMMARY}</pre>
-                            <p style="margin-top: 15px;">The Docker image has been built, pushed, and scanned for vulnerabilities.</p>
+                            <p style="margin-top: 15px;">The Docker image has been built, pushed, and scanned for vulnerabilities. Please find the attached Trivy report.</p>
                         </body>
                         </html>
                     """,
                     mimeType: 'text/html',
                     to: "${env.RECIPIENT_EMAILS}",
                     attachLog: true,
-                    attachmentsPattern: 'trivy-report.txt,trivy-summary.txt'
+                    attachmentsPattern: 'trivy-report.txt'
                 )
             }
         }
