@@ -1,0 +1,121 @@
+pipeline {
+    agent { label 'BUILD-SERVER' }
+
+    parameters {
+        string(name: 'OVERRIDE_TAG', defaultValue: '', description: 'Optional: override auto-generated image tag')
+    }
+
+    environment {
+        CONTAINER_NAME        = "myapp2"
+        DOCKER_FILENAME       = "Dockerfile"
+        DOCKER_HUB_USERNAME   = "jamaldevsecops"
+        DOCKER_CREDENTIALS_ID = "PersonalDockerHubAccessToken"
+        RECIPIENT_EMAILS      = "jamalhossain.devsecops@gmail.com"
+    }
+
+    stages {
+        stage('📥 Checkout') {
+            steps {
+                echo "📥 Checking out source code..."
+                checkout scm
+                script {
+                    sh 'git fetch --tags'
+
+                    def gitTag = sh(returnStdout: true, script: "git describe --tags --abbrev=0 || echo ''").trim()
+                    def commitHash = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+
+                    if (params.OVERRIDE_TAG?.trim()) {
+                        env.IMAGE_TAG = params.OVERRIDE_TAG
+                        echo "🔖 Using override tag: ${env.IMAGE_TAG}"
+                    } else if (gitTag) {
+                        env.IMAGE_TAG = gitTag.startsWith('v') ? gitTag.substring(1) : gitTag
+                        echo "🔖 Using Git tag as image tag: ${env.IMAGE_TAG}"
+                    } else {
+                        env.IMAGE_TAG = commitHash
+                        echo "🔖 No Git tag found. Using commit hash as image tag: ${env.IMAGE_TAG}"
+                    }
+
+                    env.GIT_COMMIT_HASH = commitHash
+                    env.GIT_BRANCH = sh(returnStdout: true, script: "git rev-parse --abbrev-ref HEAD").trim()
+                }
+            }
+        }
+
+        stage('🔧 Build & Push Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry("https://index.docker.io/v1/", env.DOCKER_CREDENTIALS_ID) {
+                        def imageName = "${env.DOCKER_HUB_USERNAME}/${env.CONTAINER_NAME}:${env.IMAGE_TAG}"
+                        echo "🔧 Building Docker image: ${imageName}"
+                        def app = docker.build(imageName, "-f ${env.DOCKER_FILENAME} .")
+
+                        echo "📤 Pushing Docker image..."
+                        app.push()
+                        app.push("latest") 
+                        env.DOCKER_IMAGE = imageName
+
+                        env.DOCKER_DIGEST = sh(returnStdout: true, script: "docker inspect --format='{{index .RepoDigests 0}}' ${imageName}").trim()
+                        echo "✅ Docker image pushed: ${env.DOCKER_IMAGE} (${env.DOCKER_DIGEST})"
+                    }
+                }
+            }
+        }
+
+        stage('🛡️ Trivy Image Scan') {
+            steps {
+                script {
+                    // Create a simple template for Trivy summary
+                    writeFile file: 'trivy-summary.tpl', text: '''
+{{ range .Results }}
+{{ .Target }}:
+  {{ if .Vulnerabilities }}
+  {{ range .Vulnerabilities }}- {{ .Severity }}: {{ .PkgName }} {{ .InstalledVersion }} -> {{ .FixedVersion }}
+  {{ end }}
+  {{ else }}No vulnerabilities found.
+  {{ end }}
+{{ end }}
+'''
+
+                    // Run Trivy scans
+                    sh """
+                        trivy image --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format table -o trivy-report.txt ${env.DOCKER_IMAGE}
+                        trivy image --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template ./trivy-summary.tpl -o trivy-summary.txt ${env.DOCKER_IMAGE}
+                    """
+
+                    env.TRIVY_SUMMARY = readFile('trivy-summary.txt').trim()
+                    echo "✅ Trivy scan completed. Summary:\\n${env.TRIVY_SUMMARY}"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                emailext(
+                    subject: "🛡️ [SECURITY SCAN] Docker Image Build Report: ${env.CONTAINER_NAME}:${env.IMAGE_TAG}",
+                    body: """
+                        <html>
+                        <body style="font-family: Arial, sans-serif; color: #333;">
+                            <h2 style="color: #2E86C1;">🛡️ Docker Image Build & Security Scan Report</h2>
+                            <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
+                                <tr><td><strong>Docker Image</strong></td><td>${env.DOCKER_IMAGE}</td></tr>
+                                <tr><td><strong>Digest</strong></td><td>${env.DOCKER_DIGEST}</td></tr>
+                                <tr><td><strong>Git Branch</strong></td><td>${env.GIT_BRANCH}</td></tr>
+                                <tr><td><strong>Git Commit</strong></td><td>${env.GIT_COMMIT_HASH}</td></tr>
+                            </table>
+                            <h3 style="color: #C0392B; margin-top: 15px;">Trivy Vulnerability Summary</h3>
+                            <pre style="background-color: #F4F6F7; padding: 10px; border-radius: 5px;">${env.TRIVY_SUMMARY}</pre>
+                            <p style="margin-top: 15px;">The Docker image has been built, pushed, and scanned for vulnerabilities.</p>
+                        </body>
+                        </html>
+                    """,
+                    mimeType: 'text/html',
+                    to: "${env.RECIPIENT_EMAILS}",
+                    attachLog: true,
+                    attachmentsPattern: 'trivy-report.txt,trivy-summary.txt'
+                )
+            }
+        }
+    }
+}
