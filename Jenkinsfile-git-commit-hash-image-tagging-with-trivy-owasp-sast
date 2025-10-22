@@ -10,8 +10,8 @@ pipeline {
         DOCKER_FILENAME       = "Dockerfile"
         DOCKER_HUB_USERNAME   = "jamaldevsecops"
         DOCKER_CREDENTIALS_ID = "PersonalDockerHubAccessToken"
-        RECIPIENT_EMAILS      = "jamalhossain.devsecops@gmail.com"
-        DEP_CHECK_NAME        = "OWASP-DC"  // matches the name in Jenkins Global Tool Config
+        RECIPIENT_EMAILS      = "jamal.devsecops@gmail.com"
+        DEP_CHECK_NAME        = "OWASP-DC"  // matches name in Jenkins Global Tool Config
     }
 
     stages {
@@ -44,19 +44,17 @@ pipeline {
         stage('🔧 Build & Push Docker Image') {
             steps {
                 script {
+                    def imageName = "${env.DOCKER_HUB_USERNAME}/${env.CONTAINER_NAME}:${env.IMAGE_TAG}"
                     docker.withRegistry("https://index.docker.io/v1/", env.DOCKER_CREDENTIALS_ID) {
-                        def imageName = "${env.DOCKER_HUB_USERNAME}/${env.CONTAINER_NAME}:${env.IMAGE_TAG}"
                         echo "🔧 Building Docker image: ${imageName}"
                         def app = docker.build(imageName, "-f ${env.DOCKER_FILENAME} .")
-
                         echo "📤 Pushing Docker image..."
                         app.push()
-                        app.push("latest") 
-                        env.DOCKER_IMAGE = imageName
-
-                        env.DOCKER_DIGEST = sh(returnStdout: true, script: "docker inspect --format='{{index .RepoDigests 0}}' ${imageName}").trim()
-                        echo "✅ Docker image pushed: ${env.DOCKER_IMAGE} (${env.DOCKER_DIGEST})"
+                        app.push("latest")
                     }
+                    env.DOCKER_IMAGE = imageName
+                    env.DOCKER_DIGEST = sh(returnStdout: true, script: "docker inspect --format='{{index .RepoDigests 0}}' ${imageName}").trim()
+                    echo "✅ Docker image pushed: ${env.DOCKER_IMAGE} (${env.DOCKER_DIGEST})"
                 }
             }
         }
@@ -66,16 +64,14 @@ pipeline {
                 script {
                     echo "🔍 Running OWASP Dependency-Check analysis..."
                     dependencyCheck additionalArguments: '--format XML --format HTML --enableExperimental',
-                        odcInstallation: "${env.DEP_CHECK_NAME}",
-                        outdir: 'dependency-check-report',
-                        scanpath: '.'
+                        odcInstallation: "${env.DEP_CHECK_NAME}"
                 }
             }
             post {
                 always {
                     echo "📦 Archiving Dependency-Check reports..."
-                    archiveArtifacts artifacts: 'dependency-check-report/*.*', fingerprint: true
-                    dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
+                    archiveArtifacts artifacts: '*.xml,*.html', fingerprint: true
+                    dependencyCheckPublisher pattern: 'dependency-check-report.xml'
                 }
             }
         }
@@ -100,6 +96,9 @@ pipeline {
     post {
         always {
             script {
+                // Verify reports before email
+                sh 'ls -l dependency-check-report*.html dependency-check-report*.xml trivy-report.txt || true'
+
                 emailext(
                     subject: "🛡️ [Security Report] ${env.CONTAINER_NAME}:${env.IMAGE_TAG}",
                     body: """
@@ -123,7 +122,7 @@ pipeline {
                     mimeType: 'text/html',
                     to: "${env.RECIPIENT_EMAILS}",
                     attachLog: true,
-                    attachmentsPattern: 'dependency-check-report/*.html,dependency-check-report/*.xml,trivy-report.txt'
+                    attachmentsPattern: 'dependency-check-report*.html,dependency-check-report*.xml,trivy-report.txt'
                 )
             }
         }
