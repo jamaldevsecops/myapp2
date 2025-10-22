@@ -42,14 +42,15 @@ pipeline {
             }
         }
 
-        stage('🧮 Trivy Filesystem Scan') {
+        stage('Trivy Filesystem Scan') {
             steps {
                 script {
                     echo "🔍 Running Trivy filesystem scan (source dependencies)..."
                     sh '''
-                        mkdir -p reports
-                        trivy fs --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format json -o reports/trivy-fs-report.json .
-                        trivy fs --format template --template "@/contrib/html.tpl" -o reports/trivy-fs-report.html .
+                      mkdir -p reports
+                      curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o html.tpl
+                      trivy fs --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format json -o reports/trivy-fs-report.json .
+                      trivy fs --format template --template @html.tpl -o reports/trivy-fs-report.html .
                     '''
                 }
             }
