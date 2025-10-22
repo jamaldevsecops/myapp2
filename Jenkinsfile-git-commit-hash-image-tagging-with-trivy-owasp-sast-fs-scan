@@ -101,16 +101,17 @@ pipeline {
             steps {
                 script {
                     echo "🔍 Running Trivy image scan..."
-                    sh '''
+                    sh """
                         mkdir -p reports
-                        trivy image --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format json -o reports/trivy-image-report.json ${DOCKER_IMAGE}
-                        trivy image --format template --template "@/contrib/html.tpl" -o reports/trivy-image-report.html ${DOCKER_IMAGE}
-                    '''
-                    echo "✅ Trivy image scan completed."
+                        curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o html.tpl
+                        trivy image --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format json -o reports/trivy-image-report.json ${env.DOCKER_IMAGE}
+                        trivy image --format template --template @html.tpl -o reports/trivy-image-report.html ${env.DOCKER_IMAGE}
+                    """
                 }
             }
             post {
                 always {
+                    echo "📦 Archiving Trivy Image reports..."
                     archiveArtifacts artifacts: 'reports/trivy-image-report.*', fingerprint: true
                 }
             }
