@@ -1,0 +1,175 @@
+pipeline {
+    agent { label 'BUILD-SERVER' }
+
+    parameters {
+        string(name: 'OVERRIDE_TAG', defaultValue: '', description: 'Optional: override auto-generated image tag')
+    }
+
+    environment {
+        CONTAINER_NAME        = "myapp2"
+        DOCKER_FILENAME       = "Dockerfile"
+        DOCKER_HUB_USERNAME   = "jamaldevsecops"
+        DOCKER_CREDENTIALS_ID = "PersonalDockerHubAccessToken"
+        RECIPIENT_EMAILS      = "jamal.devsecops@gmail.com"
+        DEP_CHECK_NAME        = "OWASP-DC"
+    
+        // SonarQube-specific environment variables
+        SONAR_PROJECT_KEY     = "OpsNav"
+        SCANNER_HOME          = tool 'NGD-SonarQube-Scanner'      // Jenkins-installed scanner
+    }
+
+    stages {
+
+        stage('📥 Checkout') {
+            steps {
+                echo "📥 Checking out source code..."
+                checkout scm
+                script {
+                    sh 'git fetch --tags'
+                    def gitTag = sh(returnStdout: true, script: "git describe --tags --abbrev=0 || echo ''").trim()
+                    def commitHash = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+
+                    if (params.OVERRIDE_TAG?.trim()) {
+                        env.IMAGE_TAG = params.OVERRIDE_TAG
+                        echo "🔖 Using override tag: ${env.IMAGE_TAG}"
+                    } else if (gitTag) {
+                        env.IMAGE_TAG = gitTag.startsWith('v') ? gitTag.substring(1) : gitTag
+                        echo "🔖 Using Git tag as image tag: ${env.IMAGE_TAG}"
+                    } else {
+                        env.IMAGE_TAG = commitHash
+                        echo "🔖 No Git tag found. Using commit hash as image tag: ${env.IMAGE_TAG}"
+                    }
+
+                    env.GIT_COMMIT_HASH = commitHash
+                    env.GIT_BRANCH = sh(returnStdout: true, script: "git rev-parse --abbrev-ref HEAD").trim()
+                }
+            }
+        }
+
+        stage('🧠 SonarQube Code Analysis') {
+            steps {
+                withSonarQubeEnv('MySonarQube') {  // Name you gave in Jenkins SonarQube server config
+                    script {
+                        echo "🔍 Running SonarQube analysis..."
+                        sh """
+                            ${SCANNER_HOME}/bin/sonar-scanner \
+                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                              -Dsonar.sources=. \
+                              -Dsonar.host.url=${SONAR_HOST_URL}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Trivy Filesystem Scan') {
+            steps {
+                script {
+                    echo "🔍 Running Trivy filesystem scan (source dependencies)..."
+                    sh '''
+                      mkdir -p reports
+                      curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o html.tpl
+                      trivy fs --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format json -o reports/trivy-fs-report.json .
+                      trivy fs --format template --template @html.tpl -o reports/trivy-fs-report.html .
+                    '''
+                }
+            }
+            post {
+                always {
+                    echo "📦 Archiving Trivy FS reports..."
+                    archiveArtifacts artifacts: 'reports/trivy-fs-report.*', fingerprint: true
+                }
+            }
+        }
+
+        stage('🔧 Build & Push Docker Image') {
+            steps {
+                script {
+                    def imageName = "${env.DOCKER_HUB_USERNAME}/${env.CONTAINER_NAME}:${env.IMAGE_TAG}"
+                    docker.withRegistry("https://index.docker.io/v1/", env.DOCKER_CREDENTIALS_ID) {
+                        echo "🔧 Building Docker image: ${imageName}"
+                        def app = docker.build(imageName, "-f ${env.DOCKER_FILENAME} .")
+                        echo "📤 Pushing Docker image..."
+                        app.push()
+                        app.push("latest")
+                    }
+                    env.DOCKER_IMAGE = imageName
+                    env.DOCKER_DIGEST = sh(returnStdout: true, script: "docker inspect --format='{{index .RepoDigests 0}}' ${imageName}").trim()
+                    echo "✅ Docker image pushed: ${env.DOCKER_IMAGE} (${env.DOCKER_DIGEST})"
+                }
+            }
+        }
+
+        stage('🧩 OWASP Dependency-Check') {
+            steps {
+                script {
+                    echo "🔍 Running OWASP Dependency-Check analysis..."
+                    dependencyCheck additionalArguments: '--format XML --format HTML --enableExperimental',
+                        odcInstallation: "${env.DEP_CHECK_NAME}"
+                }
+            }
+            post {
+                always {
+                    echo "📦 Archiving Dependency-Check reports..."
+                    archiveArtifacts artifacts: '*.xml,*.html', fingerprint: true
+                    dependencyCheckPublisher pattern: 'dependency-check-report.xml'
+                }
+            }
+        }
+
+        stage('🛡️ Trivy Image Scan') {
+            steps {
+                script {
+                    echo "🔍 Running Trivy image scan..."
+                    sh """
+                        mkdir -p reports
+                        curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o html.tpl
+                        trivy image --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL --format json -o reports/trivy-image-report.json ${env.DOCKER_IMAGE}
+                        trivy image --format template --template @html.tpl -o reports/trivy-image-report.html ${env.DOCKER_IMAGE}
+                    """
+                }
+            }
+            post {
+                always {
+                    echo "📦 Archiving Trivy Image reports..."
+                    archiveArtifacts artifacts: 'reports/trivy-image-report.*', fingerprint: true
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                sh 'ls -l reports/trivy-*.html reports/trivy-*.json dependency-check-report*.html dependency-check-report*.xml || true'
+
+                emailext(
+                    subject: "Docker Image Build (${env.CONTAINER_NAME}:${env.IMAGE_TAG}) Status with [🛡️ Security Report]",
+                    body: """
+                        <html>
+                        <body style="font-family: Arial, sans-serif; color: #333;">
+                            <h2 style="color: #2E86C1;">Security Report Summary</h2>
+                            <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
+                                <tr><td><strong>Docker Image</strong></td><td>${env.DOCKER_IMAGE}</td></tr>
+                                <tr><td><strong>Digest</strong></td><td>${env.DOCKER_DIGEST}</td></tr>
+                                <tr><td><strong>Git Branch</strong></td><td>${env.GIT_BRANCH}</td></tr>
+                                <tr><td><strong>Git Commit</strong></td><td>${env.GIT_COMMIT_HASH}</td></tr>
+                            </table>
+                            <p style="margin-top: 15px;">
+                                <strong>Attached Reports:</strong><br>
+                                • Trivy Filesystem Scan (HTML, JSON)<br>
+                                • OWASP Dependency-Check (HTML, XML)<br>
+                                • Trivy Image Scan (HTML, JSON)
+                            </p>
+                        </body>
+                        </html>
+                    """,
+                    mimeType: 'text/html',
+                    to: "${env.RECIPIENT_EMAILS}",
+                    attachLog: true,
+                    attachmentsPattern: 'reports/trivy-*.html,reports/trivy-*.json,dependency-check-report*.html,dependency-check-report*.xml'
+                )
+            }
+        }
+    }
+}
