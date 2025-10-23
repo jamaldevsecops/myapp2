@@ -124,7 +124,7 @@ pipeline {
                 sh 'ls -l reports/trivy-*.html reports/trivy-*.json dependency-check-report*.html dependency-check-report*.xml || true'
 
                 emailext(
-                    subject: "🛡️ [Security Report] ${env.CONTAINER_NAME}:${env.IMAGE_TAG}",
+                    subject: "Image Build Status with 🛡️ [Security Report] Docker ${env.CONTAINER_NAME}:${env.IMAGE_TAG}",
                     body: """
                         <html>
                         <body style="font-family: Arial, sans-serif; color: #333;">
