@@ -50,13 +50,13 @@ pipeline {
         stage('🧠 SonarQube Code Analysis') {
             steps {
                 withSonarQubeEnv("${env.SONARQUBE_SERVER}") {
-                    withCredentials([string(credentialsId: 'SONARQUBE-TOKEN', variable: 'SONAR_AUTH_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'SONARQUBE-TOKEN', variable: 'SONAR_TOKEN')]) {
                         sh """
                             ${SCANNER_HOME}/bin/sonar-scanner \
-                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                              -Dsonar.sources=. \
-                              -Dsonar.login=${SONAR_AUTH_TOKEN} \
-                              -Dsonar.qualitygate.wait=false
+                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                -Dsonar.sources=. \
+                                -Dsonar.login=${SONAR_TOKEN} \
+                                -Dsonar.qualitygate.wait=false
                         """
                     }
                 }
