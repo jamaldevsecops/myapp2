@@ -14,8 +14,9 @@ pipeline {
         DEP_CHECK_NAME        = "OWASP-DC"
     
         // SonarQube-specific environment variables
-        SONAR_PROJECT_KEY = "OpsNav"
-        SCANNER_HOME      = tool 'NGD-SonarQube-Scanner'   // Name from Manage Jenkins → Tools
+        SONAR_PROJECT_KEY     = "OpsNav"
+        SONARQUBE_SERVER     = "NGD-SonarQube-Scanner"  // matches Jenkins global SonarQube config
+        SCANNER_HOME         = tool "NGD-SonarQube-Scanner"   // Name from Manage Jenkins → Tools
     }
 
     stages {
@@ -45,17 +46,15 @@ pipeline {
                 }
             }
         }
-        
+
         stage('🧠 SonarQube Code Analysis') {
             steps {
-                echo "🔍 Running SonarQube analysis for project: ${SONAR_PROJECT_KEY}"
-                withSonarQubeEnv('MySonarQube') {  // Must match the name in Jenkins system config
-                    script {
+                withSonarQubeEnv("${env.SONARQUBE_SERVER}") {
+                    withCredentials([string(credentialsId: 'SONARQUBE-TOKEN', variable: 'SONAR_AUTH_TOKEN')]) {
                         sh """
                             ${SCANNER_HOME}/bin/sonar-scanner \
                               -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                               -Dsonar.sources=. \
-                              -Dsonar.host.url=${SONAR_HOST_URL} \
                               -Dsonar.login=${SONAR_AUTH_TOKEN} \
                               -Dsonar.qualitygate.wait=false
                         """
