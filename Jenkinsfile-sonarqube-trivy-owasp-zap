@@ -15,7 +15,6 @@ pipeline {
     
         // SonarQube-specific environment variables
         SONAR_PROJECT_KEY = "OpsNav"
-        SONAR_HOST_URL    = "http://10.210.10.154:9090"
         SCANNER_HOME      = tool 'NGD-SonarQube-Scanner'   // Name from Manage Jenkins → Tools
     }
 
@@ -49,24 +48,22 @@ pipeline {
         
         stage('🧠 SonarQube Code Analysis') {
             steps {
-                echo "🔍 Starting SonarQube analysis for project: ${SONAR_PROJECT_KEY}"
-                withSonarQubeEnv('MySonarQube') {   // Must match SonarQube server name under Global Config
-                    withCredentials([string(credentialsId: 'SONARQUBE-TOKEN', variable: 'SONAR_TOKEN')]) {
-                        script {
-                            sh """
-                                ${SCANNER_HOME}/bin/sonar-scanner \
-                                  -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                  -Dsonar.sources=. \
-                                  -Dsonar.host.url=${SONAR_HOST_URL} \
-                                  -Dsonar.login=${SONAR_TOKEN} \
-                                  -Dsonar.qualitygate.wait=false
-                            """
-                        }
+                echo "🔍 Running SonarQube analysis for project: ${SONAR_PROJECT_KEY}"
+                withSonarQubeEnv('MySonarQube') {  // Must match the name in Jenkins system config
+                    script {
+                        sh """
+                            ${SCANNER_HOME}/bin/sonar-scanner \
+                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                              -Dsonar.sources=. \
+                              -Dsonar.host.url=${SONAR_HOST_URL} \
+                              -Dsonar.login=${SONAR_AUTH_TOKEN} \
+                              -Dsonar.qualitygate.wait=false
+                        """
                     }
                 }
             }
         }
-    
+        
         stage('🧩 SonarQube Quality Gate') {
             steps {
                 script {
